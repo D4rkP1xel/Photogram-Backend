@@ -12,19 +12,34 @@ router.post("/updateUser", async (req, res) => {
         console.log(rows)
         if (rows.length === 0) //user first time logging in -> add to db
         {
-            const createUserQuery = `INSERT INTO Users VALUES ('${req.body.user_data.email}', '${req.body.user_data.name}', '${req.body.user_data.image}');`
+            const id = Date.now().toString() + Math.floor(Math.pow(10, 12) + Math.random() * 9*Math.pow(10, 12)).toString(36) //lenght 22
+            const createUserQuery = `INSERT INTO Users VALUES ('${id}', '${req.body.user_data.name}', '${req.body.user_data.email}', '${req.body.user_data.image}');`
             await connection.query(createUserQuery)
-            console.log("created user")
+            const createAuthQuery = `INSERT INTO Auth VALUES('${id}', '${req.body.provider}')`
+            await connection.query(createAuthQuery)
             res.status(200).json({ message: "success" })
             return
         }
-        // else
-        // {               //change later so users can change the photo in the settings menu
-        //     const updateUserQuery = `UPDATE Users SET photo_url='${req.body.user_data.image}' WHERE email='${req.body.user_data.email}';`
-        //     await connection.query(updateUserQuery)
-        //     console.log("updated user")
-        // }
-        res.status(200).json({ message: "success" })
+        //not first time loggin in -> check if provider exists
+        const selectProvidersQuery = `SELECT * FROM Auth WHERE user_id = '${rows[0].id}';`
+        const providersResponse = await connection.query(selectProvidersQuery)
+        console.log(providersResponse[0])
+        let providerExists = false
+        for (let index = 0; index < providersResponse[0].length; index++) {
+            
+            if(req.body.provider === providersResponse[0][index].provider)
+            {
+                providerExists = true
+                break
+            }
+        }
+        if(providerExists === true)
+        {
+            res.status(200).json({ message: "success" })  //regular login
+            return
+        }
+       
+            res.status(200).json({ message: "new provider", provider:`${req.body.provider}`}) //user gets asked if he wants to link accounts
 
     }
     catch (err) {
