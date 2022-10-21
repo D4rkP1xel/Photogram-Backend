@@ -11,7 +11,6 @@ router.post("/upload", async (req, res)=>{
   try
   {
     const base64Image = req.body.image
-
     const uploadedResponse = await cloudinary.v2.uploader.upload(base64Image,{upload_preset: "preset_user_photo"})
     console.log(uploadedResponse)
     res.send("success")
