@@ -49,7 +49,7 @@ router.post("/updateUser", async (req, res) => {
 router.post("/getUserInfo", async (req, res) => {
     const user_email = req.body.email
     const connection = await mysql.createConnection(process.env.DATABASE_URL)
-    console.log('Connected to PlanetScale!')
+    console.log('getting user info of ' + req.body.email)
     const query = `SELECT * FROM Users WHERE email='${user_email}';`
     const [rows] = await connection.query(query)
     if (rows.length === 0) {
@@ -57,9 +57,15 @@ router.post("/getUserInfo", async (req, res) => {
         return
     }
     res.status(200).json({ message: "success", data: rows[0] })
-
+  
 })
 
+router.get("/getProfileInfo/:id", async (req,res)=>{
+    const connection = await mysql.createConnection(process.env.DATABASE_URL)
+    const query = `SELECT * FROM Users WHERE id='${req.params.id}';`
+    const [rows] = await connection.query(query)
+    res.json({message: "success", data: rows[0]})
+})
 router.post("/addprovider", async (req, res) => {
     try
     {
