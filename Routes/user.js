@@ -46,7 +46,7 @@ router.post("/updateUser", async (req, res) => {
     }
 })
 
-router.post("/getUserInfo", async (req, res) => {
+router.post("/getUserInfo", async (req, res) => { //search for account info
     const user_email = req.body.email
     const connection = await mysql.createConnection(process.env.DATABASE_URL)
     console.log('getting user info of ' + req.body.email)
@@ -60,7 +60,7 @@ router.post("/getUserInfo", async (req, res) => {
   
 })
 
-router.get("/getProfileInfo/:id", async (req,res)=>{
+router.get("/getProfileInfo/:id", async (req,res)=>{ //search for other users info
     const connection = await mysql.createConnection(process.env.DATABASE_URL)
     const query = `SELECT * FROM Users WHERE id='${req.params.id}';`
     const [rows] = await connection.query(query)
@@ -106,5 +106,37 @@ catch(err)
     console.log(err)
     res.status(403).json({message: "error"})
 }
+})
+
+router.post("/addFollowing", async(req, res)=>{
+    if(req.body.follower == null || req.body.following == null)
+    {
+        res.status(403).json({message: "ERROR: wrong params"})
+        return
+    }
+    try
+    {
+        const connection = await mysql.createConnection(process.env.DATABASE_URL)
+        const countQuery = `SELECT COUNT(id) AS count FROM Users WHERE id='${req.body.follower}' OR id='${req.body.following}';`
+        const countResponse = await connection.query(countQuery)
+        if(countResponse[0][0].count !== 2)
+        {
+            res.status(403).json({message: "ERROR: user(s) not found"})
+            return
+        }
+        const addFollowerQuery = `INSERT INTO FOLLOW_RELATIONS VALUES('${req.body.follower}','${req.body.following}')`
+        const response = await connection.query(addFollowerQuery)
+        if(response[0].affectedRows === 1)
+        {
+            res.status(200).json({message: "success"})
+            return
+        }
+        res.status(404).json({message: "ERROR: unknown type 2"})
+    }
+    catch(err)
+    {
+        console.log(err)
+        res.status(404).json({message: "ERROR: unknown type 1"})
+    }
 })
 module.exports = router
