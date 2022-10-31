@@ -31,9 +31,13 @@ router.post("/newPost", async (req, res) => {
         const uploadedResponse = await cloudinary.v2.uploader.upload(base64Image, { upload_preset: "preset_user_photo" })
         const photo_url = uploadedResponse.secure_url
         const connection = await mysql.createConnection(process.env.DATABASE_URL)
-        const id = Date.now().toString() + Math.floor(Math.pow(10, 12) + Math.random() * 9 * Math.pow(10, 12)).toString(36) //lenght 22
-        const query = `INSERT INTO POSTS VALUES ('${req.body.user_id}', 1, '${photo_url}', UTC_TIMESTAMP, '${id}')`
+        const id = Date.now().toString() + Math.floor(Math.pow(10, 12) + Math.random() * 9 * Math.pow(10, 12)).toString(36) //post id -> lenght 22
+        const query = `INSERT INTO POSTS VALUES ('${req.body.user_id}', 1, '${photo_url}', UTC_TIMESTAMP, '${id}'); `
         await connection.query(query)
+        const insertTagQuery = `INSERT INTO TAGS VALUES ${req.body.tags.map((tag)=>{return `('${id}', '${tag.toLowerCase()}')`})} `
+        await connection.query(insertTagQuery)
+        const insertDescriptionQuery = `INSERT INTO POSTS_DESCRIPTION VALUES('${id}','${req.body.description}');`
+        await connection.query(insertDescriptionQuery)
         res.status(200).json({message: "success"})
     }
     catch (err) {
