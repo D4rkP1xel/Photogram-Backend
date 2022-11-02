@@ -139,4 +139,31 @@ router.post("/addFollowing", async(req, res)=>{
         res.status(404).json({message: "ERROR: unknown type 1"})
     }
 })
+
+
+router.post("/getFollowing", async (req, res)=>{
+    if(req.body.follower == null || req.body.following == null)
+    {
+        res.status(403).json({message: "ERROR: wrong params"})
+        return
+    }
+    try
+    {
+    const connection = await mysql.createConnection(process.env.DATABASE_URL)
+    const query = `SELECT * FROM FOLLOW_RELATIONS WHERE follower='${req.body.follower}' AND following='${req.body.following}'`
+    const response = await connection.query(query)
+    // console.log(response[0].length)  -> 1 if finds follow relation, 0 if not
+    let follows
+    if(response[0].length === 1)
+        follows = true
+    else
+        follows = false
+    res.status(200).json({message: "success", follows})      
+}
+catch(err)
+{
+    console.log(err)
+    res.status(403).json({message: "ERROR: unknown error"})
+}
+})
 module.exports = router
