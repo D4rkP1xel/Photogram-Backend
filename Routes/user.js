@@ -140,8 +140,41 @@ router.post("/addFollowing", async(req, res)=>{
     }
 })
 
+router.post("/removeFollowing", async(req, res)=>{
+    if(req.body.follower == null || req.body.following == null)
+    {
+        res.status(403).json({message: "ERROR: wrong params"})
+        return
+    }
+    try
+    {
+        const connection = await mysql.createConnection(process.env.DATABASE_URL)
+        const countQuery = `SELECT COUNT(id) AS count FROM Users WHERE id='${req.body.follower}' OR id='${req.body.following}';`
+        const countResponse = await connection.query(countQuery)
+        if(countResponse[0][0].count !== 2)
+        {
+            res.status(403).json({message: "ERROR: user(s) not found"})
+            return
+        }
+        const removeFollowerQuery = `DELETE FROM FOLLOW_RELATIONS WHERE follower='${req.body.follower}' AND following='${req.body.following}'`
+        const response = await connection.query(removeFollowerQuery)
+        if(response[0].affectedRows === 1)
+        {
+            res.status(200).json({message: "success"})
+            return
+        }
+        res.status(404).json({message: "ERROR: unknown type 2"})
+    }
+    catch(err)
+    {
+        console.log(err)
+        res.status(404).json({message: "ERROR: unknown type 1"})
+    }
+})
+
 
 router.post("/getFollowing", async (req, res)=>{
+    console.log("aor")
     if(req.body.follower == null || req.body.following == null)
     {
         res.status(403).json({message: "ERROR: wrong params"})
