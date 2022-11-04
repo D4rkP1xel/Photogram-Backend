@@ -109,6 +109,7 @@ catch(err)
 })
 
 router.post("/addFollowing", async(req, res)=>{
+    console.log("adding")
     if(req.body.follower == null || req.body.following == null)
     {
         res.status(403).json({message: "ERROR: wrong params"})
@@ -141,6 +142,7 @@ router.post("/addFollowing", async(req, res)=>{
 })
 
 router.post("/removeFollowing", async(req, res)=>{
+    console.log("removing")
     if(req.body.follower == null || req.body.following == null)
     {
         res.status(403).json({message: "ERROR: wrong params"})
@@ -174,7 +176,6 @@ router.post("/removeFollowing", async(req, res)=>{
 
 
 router.post("/getFollowing", async (req, res)=>{
-    console.log("aor")
     if(req.body.follower == null || req.body.following == null)
     {
         res.status(403).json({message: "ERROR: wrong params"})
