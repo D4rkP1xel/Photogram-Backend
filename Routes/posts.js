@@ -14,7 +14,7 @@ router.get("/user/:id", async (req, res) => {
     const user_id = req.params.id
     console.log(req.params.id)
     const connection = await mysql.createConnection(process.env.DATABASE_URL)
-    const query = `SELECT * FROM POSTS WHERE user_id='${user_id}';`
+    const query = `SELECT * FROM POSTS WHERE user_id='${user_id}' ORDER BY date DESC;`
     const [rows] = await connection.query(query)
     console.log(rows)
     res.status(200).json({ message: "success", data: rows })
