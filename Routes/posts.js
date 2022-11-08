@@ -57,7 +57,7 @@ router.post("/getPost", async(req, res) => {
         return
     }
     const connection = await mysql.createConnection(process.env.DATABASE_URL)
-    const checkPostQuery = `SELECT POSTS.id AS id, POSTS.photo_url AS photo_url, POSTS.date as date, POSTS.user_id as author_id, Users.username AS author_username, Users.photo_url AS author_photo_url FROM POSTS INNER JOIN Users ON POSTS.user_id = Users.id LEFT JOIN POSTS_DESCRIPTION ON POSTS.id = POSTS_DESCRIPTION.post_id WHERE POSTS.id='${req.body.post_id}';`
+    const checkPostQuery = `SELECT POSTS.id AS id, POSTS.photo_url AS photo_url, POSTS.date as date, POSTS.user_id as author_id, Users.username AS author_username, Users.photo_url AS author_photo_url, POSTS_DESCRIPTION.description AS description FROM POSTS INNER JOIN Users ON POSTS.user_id = Users.id LEFT JOIN POSTS_DESCRIPTION ON POSTS.id = POSTS_DESCRIPTION.post_id WHERE POSTS.id='${req.body.post_id}';`
     const checkPostResponse = await connection.query(checkPostQuery)
     if(checkPostResponse[0].length !== 1)
     {
@@ -67,5 +67,45 @@ router.post("/getPost", async(req, res) => {
     console.log( checkPostResponse[0][0])
     res.status(200).json({message: "success", data: checkPostResponse[0][0]})
 
+})
+
+router.post("/addComment", async(req,res)=>{
+    if(req.body.comment == null || req.body.comment.length > 400 || req.body.isFromPost == null || req.body.parentId == null)
+    {
+        res.status(403).json({ message: "ERROR: wrong params" })
+        return
+    }
+    try 
+    {
+        const connection = await mysql.createConnection(process.env.DATABASE_URL)
+        const id = Date.now().toString() + Math.floor(Math.pow(10, 12) + Math.random() * 9 * Math.pow(10, 12)).toString(36)
+        if(req.body.isFromPost === true)
+        {
+            const checkPostQuery = `SELECT id FROM POSTS WHERE id = '${req.body.parentId}'`
+            const response = await connection.query(checkPostQuery)
+            if(response[0].length !== 1)
+            {
+                res.status(403).json({ message: "ERROR: post accessed doesn't exist" })
+                return
+            }
+        }
+        else // is a comment on a comment
+        {
+            const checkCommentQuery = `SELECT id FROM COMMENTS WHERE id = '${req.body.parentId}'`
+            const response = await connection.query(checkCommentQuery)
+            if(response[0].length !== 1)
+            {
+                res.status(403).json({ message: "ERROR: comment accessed doesn't exist" })
+                return
+            }
+        }
+        const query = `INSERT INTO COMMENTS VALUES('${id}', '${req.body.comment}', ${req.body.isFromPost ? 1 : 0}, '${req.body.parentId}', UTC_TIMESTAMP);`
+        await connection.query(query)
+        res.status(200).json({ message: "success" })
+    } 
+    catch (error) {
+        console.log(error)
+        res.status(503).json({ message: "ERROR: Server error" })
+    }
 })
 module.exports = router
