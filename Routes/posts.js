@@ -108,4 +108,32 @@ router.post("/addComment", async(req,res)=>{
         res.status(503).json({ message: "ERROR: Server error" })
     }
 })
+
+router.post("/getComments", async(req, res)=>{
+if(req.body.post_id === undefined || req.body.post_id > 22)
+{
+    res.status(403).json({ message: "ERROR: wrong params" })
+    return
+}
+try 
+{
+    const connection = await mysql.createConnection(process.env.DATABASE_URL)
+    const checkPostQuery = `SELECT id FROM POSTS WHERE id='${req.body.post_id}'`
+    const response = await connection.query(checkPostQuery)
+    if(response[0].length !== 1)
+    {
+        res.status(403).json({ message: "ERROR: post accessed doesn't exist" })
+        return
+    }
+    const getCommentsQuery = `SELECT * FROM COMMENTS WHERE parent_id='${req.body.post_id}' AND is_from_post=1 `
+    // add a count to show the number of replies each comment has, but don't send them to save data. Only get those comments with a new route
+    const comments = await connection.query(getCommentsQuery)
+    console.log(comments[0])
+} 
+catch (error) {
+    console.log(error)
+    res.status(503).json({ message: "ERROR: Server error" })
+}
+
+})
 module.exports = router
