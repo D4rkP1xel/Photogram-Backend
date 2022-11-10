@@ -70,7 +70,7 @@ router.post("/getPost", async(req, res) => {
 })
 
 router.post("/addComment", async(req,res)=>{
-    if(req.body.comment == null || req.body.comment.length > 400 || req.body.isFromPost == null || req.body.parentId == null)
+    if(req.body.comment == null || req.body.comment.length > 400 || req.body.isFromPost == null || req.body.parentId == null || req.body.user_id == null)
     {
         res.status(403).json({ message: "ERROR: wrong params" })
         return
@@ -78,6 +78,13 @@ router.post("/addComment", async(req,res)=>{
     try 
     {
         const connection = await mysql.createConnection(process.env.DATABASE_URL)
+        const checkUserQuery = `SELECT id FROM Users WHERE id='${req.body.user_id}'`
+        const checkUserResponse = await connection.query(checkUserQuery)
+        if(checkUserResponse[0].length !== 1)
+        {
+            res.status(403).json({ message: "ERROR: user who commented doesn't exist" })
+                return
+        }
         const id = Date.now().toString() + Math.floor(Math.pow(10, 12) + Math.random() * 9 * Math.pow(10, 12)).toString(36)
         if(req.body.isFromPost === true)
         {
@@ -99,7 +106,7 @@ router.post("/addComment", async(req,res)=>{
                 return
             }
         }
-        const query = `INSERT INTO COMMENTS VALUES('${id}', '${req.body.comment}', ${req.body.isFromPost ? 1 : 0}, '${req.body.parentId}', UTC_TIMESTAMP);`
+        const query = `INSERT INTO COMMENTS VALUES('${id}', '${req.body.comment}', ${req.body.isFromPost ? 1 : 0}, '${req.body.parentId}', '${req.body.user_id}', UTC_TIMESTAMP);`
         await connection.query(query)
         res.status(200).json({ message: "success" })
     } 
@@ -125,10 +132,11 @@ try
         res.status(403).json({ message: "ERROR: post accessed doesn't exist" })
         return
     }
-    const getCommentsQuery = `SELECT * FROM COMMENTS WHERE parent_id='${req.body.post_id}' AND is_from_post=1 `
+    const getCommentsQuery = `SELECT COMMENTS.id as id, COMMENTS.text AS text, COMMENTS.is_from_post AS is_from_post, COMMENTS.parent_id AS parent_id, COMMENTS.date AS date, COMMENTS.user_id AS user_id, Users.photo_url AS user_photo_url, Users.username AS user_username FROM COMMENTS INNER JOIN Users ON COMMENTS.user_id = Users.id WHERE parent_id='${req.body.post_id}' AND is_from_post=1 `
     // add a count to show the number of replies each comment has, but don't send them to save data. Only get those comments with a new route
     const comments = await connection.query(getCommentsQuery)
     console.log(comments[0])
+    res.status(200).json({ message: "success", data: comments[0]})
 } 
 catch (error) {
     console.log(error)
