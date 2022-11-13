@@ -34,12 +34,11 @@ router.post("/newPost", async (req, res) => {
         const id = Date.now().toString() + Math.floor(Math.pow(10, 12) + Math.random() * 9 * Math.pow(10, 12)).toString(36) //post id -> lenght 22
         const query = `INSERT INTO POSTS VALUES ('${req.body.user_id}', 1, '${photo_url}', UTC_TIMESTAMP, '${id}'); `
         await connection.query(query)
-        if(req.body.tags.length > 0)
-        {
+        if (req.body.tags.length > 0) {
             const insertTagQuery = `INSERT INTO TAGS VALUES ${req.body.tags.map((tag) => { return `('${id}', '${tag.toLowerCase()}')` })} `
             await connection.query(insertTagQuery)
         }
-        
+
         const insertDescriptionQuery = `INSERT INTO POSTS_DESCRIPTION VALUES('${id}','${req.body.description}');`
         await connection.query(insertDescriptionQuery)
         res.status(200).json({ message: "success" })
@@ -51,47 +50,41 @@ router.post("/newPost", async (req, res) => {
 
 })
 
-router.post("/getPost", async(req, res) => {
+router.post("/getPost", async (req, res) => {
     if (req.body.post_id === undefined || req.body.post_id.length > 22) {
         res.status(403).json({ message: "ERROR: wrong params" })
         return
     }
     const connection = await mysql.createConnection(process.env.DATABASE_URL)
-    const checkPostQuery = `SELECT POSTS.id AS id, POSTS.photo_url AS photo_url, POSTS.date as date, POSTS.user_id as author_id, Users.username AS author_username, Users.photo_url AS author_photo_url, POSTS_DESCRIPTION.description AS description FROM POSTS INNER JOIN Users ON POSTS.user_id = Users.id LEFT JOIN POSTS_DESCRIPTION ON POSTS.id = POSTS_DESCRIPTION.post_id WHERE POSTS.id='${req.body.post_id}';`
+    const checkPostQuery = `SELECT POSTS.id AS id, POSTS.photo_url AS photo_url, POSTS.date as date, POSTS.user_id as author_id, Users.username AS author_username, Users.photo_url AS author_photo_url, POSTS_DESCRIPTION.description AS description, (SELECT COUNT(post_id) FROM POST_LIKES WHERE post_id='${req.body.post}') AS num_likes FROM POSTS INNER JOIN Users ON POSTS.user_id = Users.id LEFT JOIN POSTS_DESCRIPTION ON POSTS.id = POSTS_DESCRIPTION.post_id WHERE POSTS.id='${req.body.post_id}';`
     const checkPostResponse = await connection.query(checkPostQuery)
-    if(checkPostResponse[0].length !== 1)
-    {
+    if (checkPostResponse[0].length !== 1) {
         res.status(403).json({ message: "ERROR: post doesn't exist" })
         return
     }
-    console.log( checkPostResponse[0][0])
-    res.status(200).json({message: "success", data: checkPostResponse[0][0]})
+    console.log(checkPostResponse[0][0])
+    res.status(200).json({ message: "success", data: checkPostResponse[0][0] })
 
 })
 
-router.post("/addComment", async(req,res)=>{
-    if(req.body.comment == null || req.body.comment.length > 400 || req.body.isFromPost == null || req.body.parentId == null || req.body.user_id == null)
-    {
+router.post("/addComment", async (req, res) => {
+    if (req.body.comment == null || req.body.comment.length > 400 || req.body.isFromPost == null || req.body.parentId == null || req.body.user_id == null) {
         res.status(403).json({ message: "ERROR: wrong params" })
         return
     }
-    try 
-    {
+    try {
         const connection = await mysql.createConnection(process.env.DATABASE_URL)
         const checkUserQuery = `SELECT id FROM Users WHERE id='${req.body.user_id}'`
         const checkUserResponse = await connection.query(checkUserQuery)
-        if(checkUserResponse[0].length !== 1)
-        {
+        if (checkUserResponse[0].length !== 1) {
             res.status(403).json({ message: "ERROR: user who commented doesn't exist" })
-                return
+            return
         }
         const id = Date.now().toString() + Math.floor(Math.pow(10, 12) + Math.random() * 9 * Math.pow(10, 12)).toString(36)
-        if(req.body.isFromPost === true)
-        {
+        if (req.body.isFromPost === true) {
             const checkPostQuery = `SELECT id FROM POSTS WHERE id = '${req.body.parentId}'`
             const response = await connection.query(checkPostQuery)
-            if(response[0].length !== 1)
-            {
+            if (response[0].length !== 1) {
                 res.status(403).json({ message: "ERROR: post accessed doesn't exist" })
                 return
             }
@@ -100,8 +93,7 @@ router.post("/addComment", async(req,res)=>{
         {
             const checkCommentQuery = `SELECT id FROM COMMENTS WHERE id = '${req.body.parentId}'`
             const response = await connection.query(checkCommentQuery)
-            if(response[0].length !== 1)
-            {
+            if (response[0].length !== 1) {
                 res.status(403).json({ message: "ERROR: comment accessed doesn't exist" })
                 return
             }
@@ -109,39 +101,108 @@ router.post("/addComment", async(req,res)=>{
         const query = `INSERT INTO COMMENTS VALUES('${id}', '${req.body.comment}', ${req.body.isFromPost ? 1 : 0}, '${req.body.parentId}', '${req.body.user_id}', UTC_TIMESTAMP);`
         await connection.query(query)
         res.status(200).json({ message: "success" })
-    } 
+    }
     catch (error) {
         console.log(error)
         res.status(503).json({ message: "ERROR: Server error" })
     }
 })
 
-router.post("/getComments", async(req, res)=>{
-if(req.body.post_id === undefined || req.body.post_id > 22)
-{
-    res.status(403).json({ message: "ERROR: wrong params" })
-    return
-}
-try 
-{
-    const connection = await mysql.createConnection(process.env.DATABASE_URL)
-    const checkPostQuery = `SELECT id FROM POSTS WHERE id='${req.body.post_id}'`
-    const response = await connection.query(checkPostQuery)
-    if(response[0].length !== 1)
-    {
-        res.status(403).json({ message: "ERROR: post accessed doesn't exist" })
+router.post("/getComments", async (req, res) => {
+    if (req.body.post_id === undefined || req.body.post_id > 22) {
+        res.status(403).json({ message: "ERROR: wrong params" })
         return
     }
-    const getCommentsQuery = `SELECT COMMENTS.id as id, COMMENTS.text AS text, COMMENTS.is_from_post AS is_from_post, COMMENTS.parent_id AS parent_id, COMMENTS.date AS date, COMMENTS.user_id AS user_id, Users.photo_url AS user_photo_url, Users.username AS user_username FROM COMMENTS INNER JOIN Users ON COMMENTS.user_id = Users.id WHERE parent_id='${req.body.post_id}' AND is_from_post=1 `
-    // add a count to show the number of replies each comment has, but don't send them to save data. Only get those comments with a new route
-    const comments = await connection.query(getCommentsQuery)
-    console.log(comments[0])
-    res.status(200).json({ message: "success", data: comments[0]})
-} 
-catch (error) {
-    console.log(error)
-    res.status(503).json({ message: "ERROR: Server error" })
-}
+    try {
+        const connection = await mysql.createConnection(process.env.DATABASE_URL)
+        const checkPostQuery = `SELECT id FROM POSTS WHERE id='${req.body.post_id}'`
+        const response = await connection.query(checkPostQuery)
+        if (response[0].length !== 1) {
+            res.status(403).json({ message: "ERROR: post accessed doesn't exist" })
+            return
+        }
+        const getCommentsQuery = `SELECT COMMENTS.id as id, COMMENTS.text AS text, COMMENTS.is_from_post AS is_from_post, COMMENTS.parent_id AS parent_id, COMMENTS.date AS date, COMMENTS.user_id AS user_id, Users.photo_url AS user_photo_url, Users.username AS user_username FROM COMMENTS INNER JOIN Users ON COMMENTS.user_id = Users.id WHERE parent_id='${req.body.post_id}' AND is_from_post=1 `
+        // add a count to show the number of replies each comment has, but don't send them to save data. Only get those comments with a new route
+        const comments = await connection.query(getCommentsQuery)
+        console.log(comments[0])
+        res.status(200).json({ message: "success", data: comments[0] })
+    }
+    catch (error) {
+        console.log(error)
+        res.status(503).json({ message: "ERROR: Server error" })
+    }
+
+})
+
+router.post("/getLike", async (req, res) => {
+    if (req.body.user_id == null || req.body.post_id == null) {
+        res.status(403).json({ message: "ERROR: wrong params" })
+        return
+    }
+    try {
+        const connection = await mysql.createConnection(process.env.DATABASE_URL)
+        const checkLike = `SELECT * FROM POST_LIKES WHERE user_id='${req.body.user_id}' AND post_id='${req.body.post_id}'`
+        const response = await connection.query(checkLike)
+        if(response[0].length !== 1)
+        {
+            res.status(200).json({ message: "success", is_like: false })
+            return
+        }
+            res.status(200).json({ message: "success", is_like: true })
+    } catch (error) {
+        console.log(error)
+        res.status(503).json({ message: "ERROR: Server error" })
+    }
+
+})
+
+router.post("/addLike", async (req, res) => {
+    if (req.body.user_id == null || req.body.post_id == null) {
+        res.status(403).json({ message: "ERROR: wrong params" })
+        return
+    }
+    const checkParamsQuery = `SELECT id FROM Users WHERE id='${req.body.user_id}' UNION SELECT id FROM POSTS WHERE id='${req.body.post_id}'`
+    try {
+        const connection = await mysql.createConnection(process.env.DATABASE_URL)
+        const response = await connection.query(checkParamsQuery)
+        if (response[0].length !== 2)    // checks post and user in db in the same query
+        {
+            res.status(403).json({ message: "ERROR: post and/or user accessed don't/doesn't exist" })
+            return
+        }
+        const addLikeQuery = `INSERT INTO POST_LIKES VALUES('${req.body.post_id}', '${req.body.user_id}')`
+        await connection.query(addLikeQuery)
+        res.status(200).json({ message: "success" })
+
+    } catch (error) {
+        console.log(error)
+        res.status(503).json({ message: "ERROR: Server error" })
+    }
+
+})
+
+router.post("/removeLike", async (req, res) => {
+    if (req.body.user_id == null || req.body.post_id == null) {
+        res.status(403).json({ message: "ERROR: wrong params" })
+        return
+    }
+    const checkParamsQuery = `SELECT * FROM POST_LIKES WHERE user_id='${req.body.user_id}'AND post_id='${req.body.post_id}'`
+    try {
+        const connection = await mysql.createConnection(process.env.DATABASE_URL)
+        const response = await connection.query(checkParamsQuery)
+        if (response[0].length !== 1)    // checks composite key in db in table POST_LIKES
+        {
+            res.status(403).json({ message: "ERROR: like wasn't found in the database" })
+            return
+        }
+        const removeLikeQuery = `DELETE FROM POST_LIKES WHERE post_id='${req.body.post_id}' AND user_id='${req.body.user_id}'`
+        await connection.query(removeLikeQuery)
+        res.status(200).json({ message: "success" })
+
+    } catch (error) {
+        console.log(error)
+        res.status(503).json({ message: "ERROR: Server error" })
+    }
 
 })
 module.exports = router
