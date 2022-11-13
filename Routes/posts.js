@@ -56,7 +56,7 @@ router.post("/getPost", async (req, res) => {
         return
     }
     const connection = await mysql.createConnection(process.env.DATABASE_URL)
-    const checkPostQuery = `SELECT POSTS.id AS id, POSTS.photo_url AS photo_url, POSTS.date as date, POSTS.user_id as author_id, Users.username AS author_username, Users.photo_url AS author_photo_url, POSTS_DESCRIPTION.description AS description, (SELECT COUNT(post_id) FROM POST_LIKES WHERE post_id='${req.body.post}') AS num_likes FROM POSTS INNER JOIN Users ON POSTS.user_id = Users.id LEFT JOIN POSTS_DESCRIPTION ON POSTS.id = POSTS_DESCRIPTION.post_id WHERE POSTS.id='${req.body.post_id}';`
+    const checkPostQuery = `SELECT POSTS.id AS id, POSTS.photo_url AS photo_url, POSTS.date as date, POSTS.user_id as author_id, Users.username AS author_username, Users.photo_url AS author_photo_url, POSTS_DESCRIPTION.description AS description, (SELECT COUNT(post_id) FROM POST_LIKES WHERE post_id='${req.body.post_id}') AS num_likes FROM POSTS INNER JOIN Users ON POSTS.user_id = Users.id LEFT JOIN POSTS_DESCRIPTION ON POSTS.id = POSTS_DESCRIPTION.post_id WHERE POSTS.id='${req.body.post_id}';`
     const checkPostResponse = await connection.query(checkPostQuery)
     if (checkPostResponse[0].length !== 1) {
         res.status(403).json({ message: "ERROR: post doesn't exist" })
