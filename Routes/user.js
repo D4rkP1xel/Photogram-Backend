@@ -220,4 +220,27 @@ router.post("/editDescription", async (req, res) => {
         res.status(403).json({ message: "ERROR: unknown error" })
     }
 })
+
+router.post("/getDescription", async(req,res)=>{
+    if (req.body.user_id === null) {
+        res.status(403).json({ message: "ERROR: wrong params" })
+        return
+    }
+
+    try {
+        const connection = await mysql.createConnection(process.env.DATABASE_URL)
+        const checkDescriptionQuery = `SELECT * FROM USER_DESCRIPTION WHERE user_id='${req.body.user_id}'`
+        const response = await connection.query(checkDescriptionQuery)
+        if (response[0].length !== 1) {
+            res.status(403).json({ message: "ERROR: didn't find user in USER_DESCRIPTION table" })
+            return
+        }
+        res.status(200).json({ message: "success", description: response[0][0].description })
+    }
+    catch(err)
+    {
+        console.log(err)
+        res.status(403).json({ message: "ERROR: unknown error" })
+    }
+})
 module.exports = router
