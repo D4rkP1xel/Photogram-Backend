@@ -143,12 +143,11 @@ router.post("/getLike", async (req, res) => {
         const connection = await mysql.createConnection(process.env.DATABASE_URL)
         const checkLike = `SELECT * FROM POST_LIKES WHERE user_id='${req.body.user_id}' AND post_id='${req.body.post_id}'`
         const response = await connection.query(checkLike)
-        if(response[0].length !== 1)
-        {
+        if (response[0].length !== 1) {
             res.status(200).json({ message: "success", is_like: false })
             return
         }
-            res.status(200).json({ message: "success", is_like: true })
+        res.status(200).json({ message: "success", is_like: true })
     } catch (error) {
         console.log(error)
         res.status(503).json({ message: "ERROR: Server error" })
@@ -204,5 +203,40 @@ router.post("/removeLike", async (req, res) => {
         res.status(503).json({ message: "ERROR: Server error" })
     }
 
+})
+
+router.post("/getPosts", async (req, res) => {
+
+    if (req.body.user_id == null || req.body.last_post_date === undefined || req.body.last_post_id === undefined) {
+        res.status(403).json({ message: "ERROR: wrong params" })
+        return
+    }
+    try {
+        if (req.body.last_post_date === null && req.body.last_post_id === null) //first fetch => get most recent posts
+        {
+            const connection = await mysql.createConnection(process.env.DATABASE_URL)
+            const query = `SELECT * FROM POSTS ORDER BY date DESC LIMIT 10;`
+            const response = await connection.query(query)
+            console.log(response[0])
+            //TODO verificacoes caso seja necessario also fazer INNER JOIN com user ids que segue
+            res.status(200).json({message: "success", posts: response[0]})
+        }
+        else if (req.body.last_post_date !== null && req.body.last_post_id !== null) //subsequent fetches
+        {
+            const connection = await mysql.createConnection(process.env.DATABASE_URL)
+            const query = `SELECT * FROM POSTS WHERE date <= "2022-10-30 15:39:44" AND id != "166714438550733lgzjhxp" ORDER BY date DESC LIMIT 10;`
+            //TODO acabar
+        }
+        else //example: date not null but post id null
+        {
+            res.status(403).json({ message: "ERROR: wrong params" })
+            return
+        }
+
+    }
+    catch (err) {
+        console.log(err)
+        res.status(503).json({ message: "ERROR: Server error" })
+    }
 })
 module.exports = router
