@@ -207,31 +207,34 @@ router.post("/removeLike", async (req, res) => {
 
 router.post("/getPosts", async (req, res) => {
 
-    if (req.body.user_id == null || req.body.last_post_date === undefined || req.body.last_post_id === undefined) {
+    if (req.body.user_id == null || req.body.last_post_id === undefined) {
         res.status(403).json({ message: "ERROR: wrong params" })
         return
     }
     try {
-        if (req.body.last_post_date === null && req.body.last_post_id === null) //first fetch => get most recent posts
+        console.log(req.body)
+        if (req.body.last_post_id === null) //first fetch => get most recent posts
         {
             const connection = await mysql.createConnection(process.env.DATABASE_URL)
-            const query = `SELECT * FROM POSTS ORDER BY date DESC LIMIT 10;`
+            const query = `SELECT POSTS.id AS id, POSTS.user_id AS user_id, POSTS.is_public AS is_public, POSTS.photo_url AS photo_url, POSTS.date AS date FROM POSTS INNER JOIN FOLLOW_RELATIONS ON POSTS.user_id = FOLLOW_RELATIONS.following WHERE FOLLOW_RELATIONS.following="${req.body.user_id}" ORDER BY date DESC LIMIT 10;`
             const response = await connection.query(query)
-            console.log(response[0])
             //TODO verificacoes caso seja necessario also fazer INNER JOIN com user ids que segue
-            res.status(200).json({message: "success", posts: response[0]})
-        }
-        else if (req.body.last_post_date !== null && req.body.last_post_id !== null) //subsequent fetches
-        {
-            const connection = await mysql.createConnection(process.env.DATABASE_URL)
-            const query = `SELECT * FROM POSTS WHERE date <= "2022-10-30 15:39:44" AND id != "166714438550733lgzjhxp" ORDER BY date DESC LIMIT 10;`
-            //TODO acabar
-        }
-        else //example: date not null but post id null
-        {
-            res.status(403).json({ message: "ERROR: wrong params" })
+            res.status(200).json({ message: "success", posts: response[0] })
             return
         }
+        const connection = await mysql.createConnection(process.env.DATABASE_URL)
+        const checkPostQuery = `SELECT id FROM POSTS WHERE id="${req.body.last_post_id}"`
+        const checkPostResponse = await connection.query(checkPostQuery)
+        if(checkPostResponse[0].length !== 1)
+        {
+            res.status(403).json({ message: "ERROR: last_post_id is not found in the database" })
+            return
+        }
+        const query = `SELECT POSTS.id AS id, POSTS.user_id AS user_id, POSTS.is_public AS is_public, POSTS.photo_url AS photo_url, POSTS.date AS date FROM POSTS INNER JOIN FOLLOW_RELATIONS ON POSTS.user_id = FOLLOW_RELATIONS.following WHERE POSTS.date <= (SELECT date FROM POSTS WHERE id="${req.body.last_post_id}") AND POSTS.id != "${req.body.last_post_id}" AND FOLLOW_RELATIONS.following="${req.body.user_id}" ORDER BY date DESC LIMIT 10;`
+        const response = await connection.query(query)
+        res.status(200).json({ message: "success", posts: response[0] })
+        //TODO acabar
+
 
     }
     catch (err) {
