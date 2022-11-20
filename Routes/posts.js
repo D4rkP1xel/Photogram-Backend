@@ -216,7 +216,7 @@ router.post("/getPosts", async (req, res) => {
         if (req.body.last_post_id === null) //first fetch => get most recent posts
         {
             const connection = await mysql.createConnection(process.env.DATABASE_URL)
-            const query = `SELECT POSTS.id AS id, POSTS.user_id AS user_id, POSTS.is_public AS is_public, POSTS.photo_url AS photo_url, POSTS.date AS date FROM POSTS INNER JOIN FOLLOW_RELATIONS ON POSTS.user_id = FOLLOW_RELATIONS.following WHERE FOLLOW_RELATIONS.following="${req.body.user_id}" ORDER BY date DESC LIMIT 10;`
+            const query = `SELECT POSTS.id AS id, (SELECT COUNT(post_id) FROM POST_LIKES WHERE post_id=POSTS.id) AS num_likes, POSTS.user_id AS user_id, POSTS.is_public AS is_public, POSTS.photo_url AS photo_url, POSTS.date AS date, Users.username AS username, POSTS_DESCRIPTION.description AS description FROM POSTS INNER JOIN Users ON POSTS.user_id = Users.id LEFT JOIN POSTS_DESCRIPTION ON POSTS.id = POSTS_DESCRIPTION.post_id WHERE POSTS.user_id IN (SELECT following FROM FOLLOW_RELATIONS WHERE follower="${req.body.user_id}") ORDER BY date DESC LIMIT 10;`
             const response = await connection.query(query)
             //TODO verificacoes caso seja necessario also fazer INNER JOIN com user ids que segue
             res.status(200).json({ message: "success", posts: response[0] })
@@ -230,7 +230,7 @@ router.post("/getPosts", async (req, res) => {
             res.status(403).json({ message: "ERROR: last_post_id is not found in the database" })
             return
         }
-        const query = `SELECT POSTS.id AS id, POSTS.user_id AS user_id, POSTS.is_public AS is_public, POSTS.photo_url AS photo_url, POSTS.date AS date FROM POSTS INNER JOIN FOLLOW_RELATIONS ON POSTS.user_id = FOLLOW_RELATIONS.following WHERE POSTS.date <= (SELECT date FROM POSTS WHERE id="${req.body.last_post_id}") AND POSTS.id != "${req.body.last_post_id}" AND FOLLOW_RELATIONS.following="${req.body.user_id}" ORDER BY date DESC LIMIT 10;`
+        const query = `SELECT POSTS.id AS id, (SELECT COUNT(post_id) FROM POST_LIKES WHERE post_id=POSTS.id) AS num_likes, POSTS.user_id AS user_id, POSTS.is_public AS is_public, POSTS.photo_url AS photo_url, POSTS.date AS date, Users.username AS username, POSTS_DESCRIPTION.description AS description FROM POSTS INNER JOIN Users ON POSTS.user_id = Users.id LEFT JOIN POSTS_DESCRIPTION ON POSTS.id = POSTS_DESCRIPTION.post_id WHERE POSTS.date <= (SELECT date FROM POSTS WHERE id="${req.body.last_post_id}") AND POSTS.id != "${req.body.last_post_id}" AND POSTS.user_id IN (SELECT following FROM FOLLOW_RELATIONS WHERE follower="${req.body.user_id}") ORDER BY date DESC LIMIT 10;`
         const response = await connection.query(query)
         res.status(200).json({ message: "success", posts: response[0] })
         //TODO acabar
