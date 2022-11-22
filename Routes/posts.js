@@ -155,6 +155,31 @@ router.post("/getLike", async (req, res) => {
 
 })
 
+
+// router.post("/changeLike", async (req, res) => {
+//     if (req.body.user_id == null || req.body.post_id == null) {
+//         res.status(403).json({ message: "ERROR: wrong params" })
+//         return
+//     }
+//     try {
+//         const checkParamsQuery = `SELECT id FROM Users WHERE id='${req.body.user_id}' UNION SELECT id FROM POSTS WHERE id='${req.body.post_id}'`
+//         const connection = await mysql.createConnection(process.env.DATABASE_URL)
+//         const response = await connection.query(checkParamsQuery)
+//         if (response[0].length !== 2)    // checks post and user in db in the same query
+//         {
+//             res.status(403).json({ message: "ERROR: post and/or user accessed don't/doesn't exist" })
+//             return
+//         }
+//         const changeLikeQuery = `CASE WHEN (SELECT user_id FROM POST_LIKES WHERE user_id="${req.body.user_id}" AND post_id="${req.body.post_id}") IS NULL THEN (INSERT INTO POST_LIKES VALUES('${req.body.post_id}', '${req.body.user_id}')) ELSE (DELETE FROM POST_LIKES WHERE user_id='${req.body.user_id}' AND post_id='${req.body.post_id}') END; `
+//         await connection.query(changeLikeQuery)
+//         res.status(200).json({ message: "success" })
+
+//     } catch (error) {
+//         console.log(error)
+//         res.status(503).json({ message: "ERROR: Server error" })
+//     }
+
+// })
 router.post("/addLike", async (req, res) => {
     if (req.body.user_id == null || req.body.post_id == null) {
         res.status(403).json({ message: "ERROR: wrong params" })
@@ -216,7 +241,7 @@ router.post("/getPosts", async (req, res) => {
         if (req.body.last_post_id === null) //first fetch => get most recent posts
         {
             const connection = await mysql.createConnection(process.env.DATABASE_URL)
-            const query = `SELECT POSTS.id AS id, (SELECT COUNT(post_id) FROM POST_LIKES WHERE post_id=POSTS.id) AS num_likes, POSTS.user_id AS user_id, POSTS.is_public AS is_public, POSTS.photo_url AS photo_url, POSTS.date AS date, Users.username AS username, Users.photo_url AS user_photo_url, POSTS_DESCRIPTION.description AS description, (CASE WHEN (SELECT post_id FROM POST_LIKES WHERE post_id=POSTS.id AND user_id=Users.id) IS NULL THEN 0 ELSE 1 END) AS is_liked FROM POSTS INNER JOIN Users ON POSTS.user_id = Users.id LEFT JOIN POSTS_DESCRIPTION ON POSTS.id = POSTS_DESCRIPTION.post_id WHERE POSTS.user_id IN (SELECT following FROM FOLLOW_RELATIONS WHERE follower="${req.body.user_id}") ORDER BY date DESC LIMIT 10;`
+            const query = `SELECT POSTS.id AS id, (SELECT COUNT(post_id) FROM POST_LIKES WHERE post_id=POSTS.id) AS num_likes, POSTS.user_id AS user_id, POSTS.is_public AS is_public, POSTS.photo_url AS photo_url, POSTS.date AS date, Users.username AS username, Users.photo_url AS user_photo_url, POSTS_DESCRIPTION.description AS description, (CASE WHEN (SELECT post_id FROM POST_LIKES WHERE post_id=POSTS.id AND user_id="${req.body.user_id}") IS NULL THEN 0 ELSE 1 END) AS is_liked FROM POSTS INNER JOIN Users ON POSTS.user_id = Users.id LEFT JOIN POSTS_DESCRIPTION ON POSTS.id = POSTS_DESCRIPTION.post_id WHERE POSTS.user_id IN (SELECT following FROM FOLLOW_RELATIONS WHERE follower="${req.body.user_id}") ORDER BY date DESC LIMIT 10;`
             const response = await connection.query(query)
             //TODO verificacoes caso seja necessario also fazer INNER JOIN com user ids que segue
             res.status(200).json({ message: "success", posts: response[0] })
@@ -225,12 +250,11 @@ router.post("/getPosts", async (req, res) => {
         const connection = await mysql.createConnection(process.env.DATABASE_URL)
         const checkPostQuery = `SELECT id FROM POSTS WHERE id="${req.body.last_post_id}"`
         const checkPostResponse = await connection.query(checkPostQuery)
-        if(checkPostResponse[0].length !== 1)
-        {
+        if (checkPostResponse[0].length !== 1) {
             res.status(403).json({ message: "ERROR: last_post_id is not found in the database" })
             return
         }
-        const query = `SELECT POSTS.id AS id, (SELECT COUNT(post_id) FROM POST_LIKES WHERE post_id=POSTS.id) AS num_likes, POSTS.user_id AS user_id, POSTS.is_public AS is_public, POSTS.photo_url AS photo_url, POSTS.date AS date, Users.username AS username, Users.photo_url AS user_photo_url, POSTS_DESCRIPTION.description AS description, (CASE WHEN (SELECT post_id FROM POST_LIKES WHERE post_id=POSTS.id AND user_id=Users.id) IS NULL THEN 0 ELSE 1 END) AS is_liked FROM POSTS INNER JOIN Users ON POSTS.user_id = Users.id LEFT JOIN POSTS_DESCRIPTION ON POSTS.id = POSTS_DESCRIPTION.post_id WHERE POSTS.date <= (SELECT date FROM POSTS WHERE id="${req.body.last_post_id}") AND POSTS.id != "${req.body.last_post_id}" AND POSTS.user_id IN (SELECT following FROM FOLLOW_RELATIONS WHERE follower="${req.body.user_id}") ORDER BY date DESC LIMIT 10;`
+        const query = `SELECT POSTS.id AS id, (SELECT COUNT(post_id) FROM POST_LIKES WHERE post_id=POSTS.id) AS num_likes, POSTS.user_id AS user_id, POSTS.is_public AS is_public, POSTS.photo_url AS photo_url, POSTS.date AS date, Users.username AS username, Users.photo_url AS user_photo_url, POSTS_DESCRIPTION.description AS description, (CASE WHEN (SELECT post_id FROM POST_LIKES WHERE post_id=POSTS.id AND user_id="${req.body.user_id}") IS NULL THEN 0 ELSE 1 END) AS is_liked FROM POSTS INNER JOIN Users ON POSTS.user_id = Users.id LEFT JOIN POSTS_DESCRIPTION ON POSTS.id = POSTS_DESCRIPTION.post_id WHERE POSTS.date <= (SELECT date FROM POSTS WHERE id="${req.body.last_post_id}") AND POSTS.id != "${req.body.last_post_id}" AND POSTS.user_id IN (SELECT following FROM FOLLOW_RELATIONS WHERE follower="${req.body.user_id}") ORDER BY date DESC LIMIT 10;`
         const response = await connection.query(query)
         res.status(200).json({ message: "success", posts: response[0] })
         //TODO acabar
