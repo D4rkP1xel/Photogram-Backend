@@ -3,7 +3,8 @@ const express = require('express')
 const app = express()
 
 const cors = require('cors')
-app.use(cors({origin: 'http://localhost:3000' || 'https://photogram-bay.vercel.app'}))
+app.use(cors({origin: ['http://localhost:3000', 'https://photogram-bay.vercel.app']}))
+
 // parse application/json
 app.use(express.json({limit: '3.5mb'}))
 console.log("Server Started!")
