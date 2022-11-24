@@ -180,6 +180,7 @@ router.post("/getLike", async (req, res) => {
 //     }
 
 // })
+
 router.post("/addLike", async (req, res) => {
     if (req.body.user_id == null || req.body.post_id == null) {
         res.status(403).json({ message: "ERROR: wrong params" })
