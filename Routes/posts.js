@@ -109,7 +109,7 @@ router.post("/addComment", async (req, res) => {
 })
 
 router.post("/getComments", async (req, res) => {
-    if (req.body.post_id === undefined || req.body.post_id > 22) {
+    if (req.body.post_id === undefined || req.body.post_id.length > 22 || req.body.last_comment_id === undefined) {
         res.status(403).json({ message: "ERROR: wrong params" })
         return
     }
@@ -121,11 +121,17 @@ router.post("/getComments", async (req, res) => {
             res.status(403).json({ message: "ERROR: post accessed doesn't exist" })
             return
         }
-        const getCommentsQuery = `SELECT COMMENTS.id as id, COMMENTS.text AS text, COMMENTS.is_from_post AS is_from_post, COMMENTS.parent_id AS parent_id, COMMENTS.date AS date, COMMENTS.user_id AS user_id, Users.photo_url AS user_photo_url, Users.username AS user_username FROM COMMENTS INNER JOIN Users ON COMMENTS.user_id = Users.id WHERE parent_id='${req.body.post_id}' AND is_from_post=1 `
-        // add a count to show the number of replies each comment has, but don't send them to save data. Only get those comments with a new route
+        if (req.body.last_comment_id === null) //first fetch => get most recent comments
+        {
+            const getCommentsQuery = `SELECT COMMENTS.id as id, COMMENTS.text AS text, COMMENTS.is_from_post AS is_from_post, COMMENTS.parent_id AS parent_id, COMMENTS.date AS date, COMMENTS.user_id AS user_id, Users.photo_url AS user_photo_url, Users.username AS user_username FROM COMMENTS INNER JOIN Users ON COMMENTS.user_id = Users.id WHERE parent_id='${req.body.post_id}' AND is_from_post=1 ORDER BY COMMENTS.date DESC LIMIT 10`
+            // add a count to show the number of replies each comment has, but don't send them to save data. Only get those comments with a new route
+            const comments = await connection.query(getCommentsQuery)
+            res.status(200).json({ message: "success", comments: comments[0] })
+            return
+        }
+        const getCommentsQuery = `SELECT COMMENTS.id as id, COMMENTS.text AS text, COMMENTS.is_from_post AS is_from_post, COMMENTS.parent_id AS parent_id, COMMENTS.date AS date, COMMENTS.user_id AS user_id, Users.photo_url AS user_photo_url, Users.username AS user_username FROM COMMENTS INNER JOIN Users ON COMMENTS.user_id = Users.id WHERE COMMENTS.date <= (SELECT date FROM COMMENTS WHERE id="${req.body.last_comment_id}") AND COMMENTS.id != "${req.body.last_comment_id}" AND parent_id='${req.body.post_id}' AND is_from_post=1 ORDER BY COMMENTS.date DESC LIMIT 10`
         const comments = await connection.query(getCommentsQuery)
-        console.log(comments[0])
-        res.status(200).json({ message: "success", data: comments[0] })
+        res.status(200).json({ message: "success", comments: comments[0] })
     }
     catch (error) {
         console.log(error)
