@@ -243,4 +243,19 @@ router.post("/getDescription", async(req,res)=>{
         res.status(403).json({ message: "ERROR: unknown error" })
     }
 })
+
+router.post("/saveAccountSettings", async(req, res)=>{
+
+    if(req.body.user_id == null || req.body.new_photo === undefined || req.body.new_name === undefined )
+    {
+        res.status(403).json({ message: "ERROR: wrong params" })
+        return
+    }
+
+    if(req.body.new_photo !== null)
+    {
+        const uploadedResponse = await cloudinary.v2.uploader.upload(req.body.new_photo, {upload_preset: "user_profile_pics"})
+        console.log(uploadedResponse)
+    }
+})
 module.exports = router
