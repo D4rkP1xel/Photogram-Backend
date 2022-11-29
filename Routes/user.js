@@ -49,10 +49,13 @@ router.post("/updateUser", async (req, res) => {
 })
 
 router.post("/getUserInfo", async (req, res) => { //search for account info
-    const user_email = req.body.email
+    if(req.body.email == null || req.body.provider == null)
+    {
+        res.status(403).json({ message: "ERROR: wrong params" })
+        return
+    }
     const connection = await mysql.createConnection(process.env.DATABASE_URL)
-    console.log('getting user info of ' + req.body.email)
-    const query = `SELECT * FROM Users WHERE email='${user_email}';`
+    const query = `SELECT Users.id AS id, Users.username AS username, Users.email AS email, Users.photo_url AS photo_url, (CASE WHEN (SELECT user_id FROM Auth WHERE user_id=Users.id AND provider='${req.body.provider}') IS NOT NULL THEN 1 ELSE 0 END) AS has_provider FROM Users WHERE email='${req.body.email}';`
     const [rows] = await connection.query(query)
     if (rows.length === 0) {
         res.status(404).json({ message: "user not found" })
