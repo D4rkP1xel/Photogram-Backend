@@ -258,4 +258,5 @@ router.post("/saveAccountSettings", async(req, res)=>{
         console.log(uploadedResponse)
     }
 })
+
 module.exports = router
