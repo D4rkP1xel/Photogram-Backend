@@ -1,5 +1,12 @@
 const router = require('express').Router()
 const mysql = require('mysql2/promise')
+const cloudinary = require('cloudinary')
+
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 router.post("/updateUser", async (req, res) => {
     console.log(req.body)
@@ -49,8 +56,7 @@ router.post("/updateUser", async (req, res) => {
 })
 
 router.post("/getUserInfo", async (req, res) => { //search for account info
-    if(req.body.email == null || req.body.provider == null)
-    {
+    if (req.body.email == null || req.body.provider == null) {
         res.status(403).json({ message: "ERROR: wrong params" })
         return
     }
@@ -193,7 +199,7 @@ router.post("/getFollowing", async (req, res) => {
 })
 
 router.post("/editDescription", async (req, res) => {
-    if (req.body.description === undefined || req.body.user_id === null) {
+    if (req.body.description === undefined || req.body.user_id == null) {
         res.status(403).json({ message: "ERROR: wrong params" })
         return
     }
@@ -209,8 +215,7 @@ router.post("/editDescription", async (req, res) => {
             res.status(403).json({ message: "ERROR: description sent in the request is the same as the one in db" })
             return
         }
-        if(req.body.description.length > 240)
-        {
+        if (req.body.description.length > 240) {
             res.status(403).json({ message: "ERROR: description too large" })
             return
         }
@@ -224,8 +229,26 @@ router.post("/editDescription", async (req, res) => {
     }
 })
 
-router.post("/getDescription", async(req,res)=>{
-    if (req.body.user_id === null) {
+router.post("/newAvatar", async (req, res) => {
+    if (req.body.photo == null || req.body.user_id == null) {
+        res.status(403).json({ message: "ERROR: wrong params" })
+        return
+    }
+    try {
+
+        const uploadedResponse = await cloudinary.v2.uploader.upload(req.body.photo, { upload_preset: "user_profile_pics" })
+        const photo_url = uploadedResponse.secure_url
+        const query = `UPDATE Users SET photo_url='${photo_url}' WHERE id='${req.body.user_id}'`
+        const connection = await mysql.createConnection(process.env.DATABASE_URL)
+        await connection.query(query)
+    }
+    catch (err) {
+        console.log(err)
+        res.status(403).json({ message: "ERROR: unknown error" })
+    }
+})
+router.post("/getDescription", async (req, res) => {
+    if (req.body.user_id == null) {
         res.status(403).json({ message: "ERROR: wrong params" })
         return
     }
@@ -240,24 +263,21 @@ router.post("/getDescription", async(req,res)=>{
         }
         res.status(200).json({ message: "success", description: response[0][0].description })
     }
-    catch(err)
-    {
+    catch (err) {
         console.log(err)
         res.status(403).json({ message: "ERROR: unknown error" })
     }
 })
 
-router.post("/saveAccountSettings", async(req, res)=>{
+router.post("/saveAccountSettings", async (req, res) => {
 
-    if(req.body.user_id == null || req.body.new_photo === undefined || req.body.new_name === undefined )
-    {
+    if (req.body.user_id == null || req.body.new_photo === undefined || req.body.new_name === undefined) {
         res.status(403).json({ message: "ERROR: wrong params" })
         return
     }
 
-    if(req.body.new_photo !== null)
-    {
-        const uploadedResponse = await cloudinary.v2.uploader.upload(req.body.new_photo, {upload_preset: "user_profile_pics"})
+    if (req.body.new_photo !== null) {
+        const uploadedResponse = await cloudinary.v2.uploader.upload(req.body.new_photo, { upload_preset: "user_profile_pics" })
         console.log(uploadedResponse)
     }
 })
