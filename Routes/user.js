@@ -247,6 +247,24 @@ router.post("/newAvatar", async (req, res) => {
         res.status(403).json({ message: "ERROR: unknown error" })
     }
 })
+
+router.post("/newUsername", async (req, res) => {
+    if (req.body.username == null || req.body.user_id == null) {
+        res.status(403).json({ message: "ERROR: wrong params" })
+        return
+    }
+    try {
+        const query = `UPDATE Users SET username='${req.body.username}' WHERE id='${req.body.user_id}'`
+        const connection = await mysql.createConnection(process.env.DATABASE_URL)
+        await connection.query(query)
+        res.status(200).json({ message: "success" })
+    }
+    catch (err) {
+        console.log(err)
+        res.status(403).json({ message: "ERROR: unknown error" })
+    }
+})
+
 router.post("/getDescription", async (req, res) => {
     if (req.body.user_id == null) {
         res.status(403).json({ message: "ERROR: wrong params" })
