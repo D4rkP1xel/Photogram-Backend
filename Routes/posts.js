@@ -272,4 +272,53 @@ router.post("/getPosts", async (req, res) => {
         res.status(503).json({ message: "ERROR: Server error" })
     }
 })
+
+router.post("/getPostsByTag", async (req, res) => {
+    if (req.body.tag == null || req.body.user_id == null || req.body.last_post_id == null) {
+        res.status(403).json({ message: "ERROR: wrong params" })
+        return
+    }
+    try {
+        const connection = await mysql.createConnection(process.env.DATABASE_URL)
+        let ids_to_fetch_query;
+        if (req.body.last_post_time === null) { //first fetch
+            ids_to_fetch_query = `SELECT POSTS.id AS id, MAX(POSTS.date) AS date 
+        FROM POSTS 
+        INNER JOIN TAGS ON POSTS.id = TAGS.post_id 
+        WHERE TAGS.tag REGEXP '${req.body.tag}' GROUP BY POSTS.id LIMIT 10;`
+        }
+        else    //subsequent fetches
+        {
+            const check_last_post_query = `SELECT POSTS.date FROM POSTS WHERE POSTS.id='${req.body.last_post_id}`
+            const date = (await connection.query(check_last_post_query))[0]
+            console.log(date)
+            ids_to_fetch_query = `SELECT POSTS.id AS id, MAX(POSTS.date) AS date 
+            FROM POSTS 
+            INNER JOIN TAGS ON POSTS.id = TAGS.post_id 
+            WHERE POSTS.date >= TIMESTAMP() 
+            AND POSTS.id IS NOT 
+            AND TAGS.tag REGEXP '${req.body.tag}' 
+            GROUP BY POSTS.id 
+            LIMIT 10;`
+        }
+        
+
+        const ids = (await connection.query(ids_to_fetch_query))[0]
+
+        if (ids.length > 0) {
+            const query = `SELECT POSTS.id AS id, (SELECT COUNT(post_id) FROM POST_LIKES WHERE post_id=POSTS.id) AS num_likes, POSTS.user_id AS user_id, POSTS.is_public AS is_public, POSTS.photo_url AS photo_url, POSTS.date AS date, Users.username AS username, Users.photo_url AS user_photo_url, POSTS_DESCRIPTION.description AS description, (CASE WHEN (SELECT post_id FROM POST_LIKES WHERE post_id=POSTS.id AND user_id="${req.body.user_id}") IS NULL THEN 0 ELSE 1 END) AS is_liked, (SELECT COUNT(id) FROM COMMENTS WHERE parent_id=POSTS.id AND is_from_post="1") AS num_comments FROM POSTS 
+        INNER JOIN Users ON POSTS.user_id = Users.id 
+        LEFT JOIN POSTS_DESCRIPTION ON POSTS.id = POSTS_DESCRIPTION.post_id 
+        WHERE POSTS.id IN (${ids.map((obj) => { return `'${obj.id}'` })})
+        ORDER BY date DESC`
+            const response = await connection.query(query)
+            res.status(200).json({ message: "success", posts: response[0] })
+            return
+        }
+        res.status(200).json({ message: "success", posts: null })
+    } catch (err) {
+        console.log(err)
+        res.status(503).json({ message: "ERROR: Server error" })
+    }
+})
 module.exports = router
