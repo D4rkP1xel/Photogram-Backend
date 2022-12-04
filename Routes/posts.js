@@ -274,14 +274,14 @@ router.post("/getPosts", async (req, res) => {
 })
 
 router.post("/getPostsByTag", async (req, res) => {
-    if (req.body.tag == null || req.body.user_id == null || req.body.last_post_id == null) {
+    if (req.body.tag == null || req.body.user_id == null || req.body.last_post_id === undefined) {
         res.status(403).json({ message: "ERROR: wrong params" })
         return
     }
     try {
         const connection = await mysql.createConnection(process.env.DATABASE_URL)
         let ids_to_fetch_query;
-        if (req.body.last_post_time === null) { //first fetch
+        if (req.body.last_post_id === null) { //first fetch
             ids_to_fetch_query = `SELECT POSTS.id AS id, MAX(POSTS.date) AS date 
         FROM POSTS 
         INNER JOIN TAGS ON POSTS.id = TAGS.post_id 
@@ -289,19 +289,18 @@ router.post("/getPostsByTag", async (req, res) => {
         }
         else    //subsequent fetches
         {
-            const check_last_post_query = `SELECT POSTS.date FROM POSTS WHERE POSTS.id='${req.body.last_post_id}`
-            const date = (await connection.query(check_last_post_query))[0]
-            console.log(date)
+            const check_last_post_query = `SELECT POSTS.date FROM POSTS WHERE POSTS.id='${req.body.last_post_id}'`
+            const date = (await connection.query(check_last_post_query))[0][0].date
             ids_to_fetch_query = `SELECT POSTS.id AS id, MAX(POSTS.date) AS date 
             FROM POSTS 
             INNER JOIN TAGS ON POSTS.id = TAGS.post_id 
-            WHERE POSTS.date >= TIMESTAMP() 
-            AND POSTS.id IS NOT 
+            WHERE POSTS.date >= TIMESTAMP('${date.toJSON()}') 
+            AND POSTS.id != '${req.body.last_post_id}'
             AND TAGS.tag REGEXP '${req.body.tag}' 
             GROUP BY POSTS.id 
             LIMIT 10;`
         }
-        
+
 
         const ids = (await connection.query(ids_to_fetch_query))[0]
 
