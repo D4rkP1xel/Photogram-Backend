@@ -317,7 +317,7 @@ router.post("/getPostsByTag", async (req, res) => {
         res.status(200).json({ message: "success", posts: null })
     } catch (err) {
         console.log(err)
-        res.status(503).json({ message: "ERROR: Server error" })
+        res.status(503).json({ message: "ERROR: Server error", posts: null })
     }
 })
 module.exports = router
