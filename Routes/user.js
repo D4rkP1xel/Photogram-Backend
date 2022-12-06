@@ -74,7 +74,12 @@ router.post("/getUserInfo", async (req, res) => { //search for account info
 router.get("/getProfileInfo/:id", async (req, res) => { //search for other users info
     console.log("getting info\n")
     const connection = await mysql.createConnection(process.env.DATABASE_URL)
-    const query = `SELECT Users.id as id, Users.username AS username, Users.email AS email, Users.photo_url AS photo_url, (SELECT COUNT(following) FROM FOLLOW_RELATIONS WHERE following='${req.params.id}') AS followers, (SELECT COUNT(follower) FROM FOLLOW_RELATIONS WHERE follower='${req.params.id}') AS following, USER_DESCRIPTION.description AS description FROM Users INNER JOIN USER_DESCRIPTION ON Users.id = USER_DESCRIPTION.user_id WHERE id='${req.params.id}' `
+    const query = `SELECT Users.id as id, Users.username AS username, 
+    Users.email AS email, Users.photo_url AS photo_url,
+    (SELECT COUNT(user_id) FROM POSTS WHERE user_id='${req.params.id}') AS num_posts,  
+    (SELECT COUNT(following) FROM FOLLOW_RELATIONS WHERE following='${req.params.id}') AS followers, 
+    (SELECT COUNT(follower) FROM FOLLOW_RELATIONS WHERE follower='${req.params.id}') AS following, 
+    USER_DESCRIPTION.description AS description FROM Users INNER JOIN USER_DESCRIPTION ON Users.id = USER_DESCRIPTION.user_id WHERE id='${req.params.id}' `
     const query_res = await connection.query(query)
     // console.log(query_res[0][0])
     res.json({ message: "success", data: query_res[0][0] })
