@@ -19,7 +19,7 @@ router.post("/getPostsProfilePage", async (req, res) => {
         if (req.body.last_post_id === null) //first fetch => get most recent posts
         {
             const connection = await mysql.createConnection(process.env.DATABASE_URL)
-            const query = `SELECT POSTS.id AS id, (SELECT COUNT(post_id) FROM POST_LIKES WHERE post_id=POSTS.id) AS num_likes, POSTS.user_id AS user_id, POSTS.is_public AS is_public, POSTS.photo_url AS photo_url, POSTS.date AS date, Users.username AS username, Users.photo_url AS user_photo_url, POSTS_DESCRIPTION.description AS description, (CASE WHEN (SELECT post_id FROM POST_LIKES WHERE post_id=POSTS.id AND user_id="${req.body.user_id}") IS NULL THEN 0 ELSE 1 END) AS is_liked, (SELECT COUNT(id) FROM COMMENTS WHERE parent_id=POSTS.id AND is_from_post="1") AS num_comments 
+            const query = `SELECT POSTS.id AS id, (SELECT COUNT(post_id) FROM POST_LIKES WHERE post_id=POSTS.id) AS num_likes, POSTS.user_id AS user_id, POSTS.is_public AS is_public, POSTS.photo_url AS photo_url, POSTS.date AS date, Users.username AS username, Users.photo_url AS user_photo_url, POSTS_DESCRIPTION.description AS description, (CASE WHEN (SELECT post_id FROM POST_LIKES WHERE post_id=POSTS.id AND user_id="${req.body.user_id}") IS NULL THEN 0 ELSE 1 END) AS is_liked, (SELECT COUNT(id) FROM COMMENTS WHERE parent_id=POSTS.id) AS num_comments 
             FROM POSTS 
             INNER JOIN Users ON POSTS.user_id = Users.id 
             LEFT JOIN POSTS_DESCRIPTION ON POSTS.id = POSTS_DESCRIPTION.post_id 
@@ -38,7 +38,7 @@ router.post("/getPostsProfilePage", async (req, res) => {
             res.status(403).json({ message: "ERROR: last_post_id is not found in the database" })
             return
         }
-        const query = `SELECT POSTS.id AS id, (SELECT COUNT(post_id) FROM POST_LIKES WHERE post_id=POSTS.id) AS num_likes, POSTS.user_id AS user_id, POSTS.is_public AS is_public, POSTS.photo_url AS photo_url, POSTS.date AS date, Users.username AS username, Users.photo_url AS user_photo_url, POSTS_DESCRIPTION.description AS description, (CASE WHEN (SELECT post_id FROM POST_LIKES WHERE post_id=POSTS.id AND user_id="${req.body.user_id}") IS NULL THEN 0 ELSE 1 END) AS is_liked, (SELECT COUNT(id) FROM COMMENTS WHERE parent_id=POSTS.id AND is_from_post="1") AS num_comments 
+        const query = `SELECT POSTS.id AS id, (SELECT COUNT(post_id) FROM POST_LIKES WHERE post_id=POSTS.id) AS num_likes, POSTS.user_id AS user_id, POSTS.is_public AS is_public, POSTS.photo_url AS photo_url, POSTS.date AS date, Users.username AS username, Users.photo_url AS user_photo_url, POSTS_DESCRIPTION.description AS description, (CASE WHEN (SELECT post_id FROM POST_LIKES WHERE post_id=POSTS.id AND user_id="${req.body.user_id}") IS NULL THEN 0 ELSE 1 END) AS is_liked, (SELECT COUNT(id) FROM COMMENTS WHERE parent_id=POSTS.id) AS num_comments 
         FROM POSTS 
         INNER JOIN Users ON POSTS.user_id = Users.id 
         LEFT JOIN POSTS_DESCRIPTION ON POSTS.id = POSTS_DESCRIPTION.post_id 
@@ -126,6 +126,10 @@ router.post("/addComment", async (req, res) => {
                 res.status(403).json({ message: "ERROR: post accessed doesn't exist" })
                 return
             }
+            const query = `INSERT INTO COMMENTS VALUES('${id}', '${req.body.comment}', '${req.body.parentId}', '${req.body.user_id}', UTC_TIMESTAMP);`
+            await connection.query(query)
+            res.status(200).json({ message: "success" })
+            return
         }
         else // is a comment on a comment
         {
@@ -135,10 +139,12 @@ router.post("/addComment", async (req, res) => {
                 res.status(403).json({ message: "ERROR: comment accessed doesn't exist" })
                 return
             }
-        }
-        const query = `INSERT INTO COMMENTS VALUES('${id}', '${req.body.comment}', ${req.body.isFromPost ? 1 : 0}, '${req.body.parentId}', '${req.body.user_id}', UTC_TIMESTAMP);`
-        await connection.query(query)
+        
+        //TODO
+        //const query = `INSERT INTO COMMENTS VALUES('${id}', '${req.body.comment}', ${req.body.isFromPost ? 1 : 0}, '${req.body.parentId}', '${req.body.user_id}', UTC_TIMESTAMP);`
+        //await connection.query(query)
         res.status(200).json({ message: "success" })
+    }
     }
     catch (error) {
         console.log(error)
@@ -161,13 +167,21 @@ router.post("/getComments", async (req, res) => {
         }
         if (req.body.last_comment_id === null) //first fetch => get most recent comments
         {
-            const getCommentsQuery = `SELECT COMMENTS.id as id, COMMENTS.text AS text, COMMENTS.is_from_post AS is_from_post, COMMENTS.parent_id AS parent_id, COMMENTS.date AS date, COMMENTS.user_id AS user_id, Users.photo_url AS user_photo_url, Users.username AS user_username FROM COMMENTS INNER JOIN Users ON COMMENTS.user_id = Users.id WHERE parent_id='${req.body.post_id}' AND is_from_post=1 ORDER BY COMMENTS.date DESC LIMIT 10`
+            const getCommentsQuery = `SELECT COMMENTS.id as id, COMMENTS.text AS text, COMMENTS.parent_id AS parent_id, COMMENTS.date AS date, COMMENTS.user_id AS user_id, Users.photo_url AS user_photo_url, Users.username AS user_username, (SELECT COUNT(*) FROM COMMENT_REPLY WHERE comment_id=COMMENTS.id) AS num_replies
+            FROM COMMENTS 
+            INNER JOIN Users ON COMMENTS.user_id = Users.id 
+            WHERE parent_id='${req.body.post_id}'
+            ORDER BY COMMENTS.date DESC 
+            LIMIT 10`
             // add a count to show the number of replies each comment has, but don't send them to save data. Only get those comments with a new route
             const comments = await connection.query(getCommentsQuery)
             res.status(200).json({ message: "success", comments: comments[0] })
             return
         }
-        const getCommentsQuery = `SELECT COMMENTS.id as id, COMMENTS.text AS text, COMMENTS.is_from_post AS is_from_post, COMMENTS.parent_id AS parent_id, COMMENTS.date AS date, COMMENTS.user_id AS user_id, Users.photo_url AS user_photo_url, Users.username AS user_username FROM COMMENTS INNER JOIN Users ON COMMENTS.user_id = Users.id WHERE COMMENTS.date <= (SELECT date FROM COMMENTS WHERE id="${req.body.last_comment_id}") AND COMMENTS.id != "${req.body.last_comment_id}" AND parent_id='${req.body.post_id}' AND is_from_post=1 ORDER BY COMMENTS.date DESC LIMIT 10`
+        const getCommentsQuery = `SELECT COMMENTS.id as id, COMMENTS.text AS text, COMMENTS.parent_id AS parent_id, COMMENTS.date AS date, COMMENTS.user_id AS user_id, Users.photo_url AS user_photo_url, Users.username AS user_username , (SELECT COUNT(*) FROM COMMENT_REPLY WHERE comment_id=COMMENTS.id) AS num_replies
+        FROM COMMENTS INNER JOIN Users ON COMMENTS.user_id = Users.id
+        WHERE COMMENTS.date <= (SELECT date FROM COMMENTS WHERE id="${req.body.last_comment_id}") 
+        AND COMMENTS.id != "${req.body.last_comment_id}" AND parent_id='${req.body.post_id}' ORDER BY COMMENTS.date DESC LIMIT 10`
         const comments = await connection.query(getCommentsQuery)
         res.status(200).json({ message: "success", comments: comments[0] })
     }
@@ -176,6 +190,29 @@ router.post("/getComments", async (req, res) => {
         res.status(503).json({ message: "ERROR: Server error" })
     }
 
+})
+
+router.post("/getCommentReplies", async(req, res)=>{
+    if (req.body.comment_id.length > 22 || req.body.last_comment_id === undefined) {
+        res.status(403).json({ message: "ERROR: wrong params" })
+        return
+    }
+    try {
+        
+        const connection = await mysql.createConnection(process.env.DATABASE_URL)
+        const checkCommentQuery = `SELECT id FROM COMMENTS WHERE id='${req.body.comment_id}'`
+        const response = await connection.query(checkCommentQuery)
+        if (response[0].length !== 1) {
+            res.status(403).json({ message: "ERROR: comment accessed doesn't exist" })
+            return
+        }
+        const getRepliesQuery = `SELECT * FROM COMMENT_REPLY WHERE comment_id='${req.body.comment_id}' ORDER BY DATE DESC LIMIT 6`
+        const replies = await connection.query(getRepliesQuery)
+        res.status(200).json({ message: "success", comments: replies[0] })
+    } catch (error) {
+        console.log(error)
+        res.status(503).json({ message: "ERROR: Server error" })
+    }
 })
 
 router.post("/getLike", async (req, res) => {
@@ -285,7 +322,7 @@ router.post("/getPosts", async (req, res) => {
         if (req.body.last_post_id === null) //first fetch => get most recent posts
         {
             const connection = await mysql.createConnection(process.env.DATABASE_URL)
-            const query = `SELECT POSTS.id AS id, (SELECT COUNT(post_id) FROM POST_LIKES WHERE post_id=POSTS.id) AS num_likes, POSTS.user_id AS user_id, POSTS.is_public AS is_public, POSTS.photo_url AS photo_url, POSTS.date AS date, Users.username AS username, Users.photo_url AS user_photo_url, POSTS_DESCRIPTION.description AS description, (CASE WHEN (SELECT post_id FROM POST_LIKES WHERE post_id=POSTS.id AND user_id="${req.body.user_id}") IS NULL THEN 0 ELSE 1 END) AS is_liked, (SELECT COUNT(id) FROM COMMENTS WHERE parent_id=POSTS.id AND is_from_post="1") AS num_comments FROM POSTS INNER JOIN Users ON POSTS.user_id = Users.id LEFT JOIN POSTS_DESCRIPTION ON POSTS.id = POSTS_DESCRIPTION.post_id WHERE POSTS.user_id IN (SELECT following FROM FOLLOW_RELATIONS WHERE follower="${req.body.user_id}") ORDER BY date DESC LIMIT 10;`
+            const query = `SELECT POSTS.id AS id, (SELECT COUNT(post_id) FROM POST_LIKES WHERE post_id=POSTS.id) AS num_likes, POSTS.user_id AS user_id, POSTS.is_public AS is_public, POSTS.photo_url AS photo_url, POSTS.date AS date, Users.username AS username, Users.photo_url AS user_photo_url, POSTS_DESCRIPTION.description AS description, (CASE WHEN (SELECT post_id FROM POST_LIKES WHERE post_id=POSTS.id AND user_id="${req.body.user_id}") IS NULL THEN 0 ELSE 1 END) AS is_liked, (SELECT COUNT(id) FROM COMMENTS WHERE parent_id=POSTS.id) AS num_comments FROM POSTS INNER JOIN Users ON POSTS.user_id = Users.id LEFT JOIN POSTS_DESCRIPTION ON POSTS.id = POSTS_DESCRIPTION.post_id WHERE POSTS.user_id IN (SELECT following FROM FOLLOW_RELATIONS WHERE follower="${req.body.user_id}") ORDER BY date DESC LIMIT 10;`
             const response = await connection.query(query)
             //TODO verificacoes caso seja necessario also fazer INNER JOIN com user ids que segue
             res.status(200).json({ message: "success", posts: response[0] })
@@ -298,7 +335,7 @@ router.post("/getPosts", async (req, res) => {
             res.status(403).json({ message: "ERROR: last_post_id is not found in the database" })
             return
         }
-        const query = `SELECT POSTS.id AS id, (SELECT COUNT(post_id) FROM POST_LIKES WHERE post_id=POSTS.id) AS num_likes, POSTS.user_id AS user_id, POSTS.is_public AS is_public, POSTS.photo_url AS photo_url, POSTS.date AS date, Users.username AS username, Users.photo_url AS user_photo_url, POSTS_DESCRIPTION.description AS description, (CASE WHEN (SELECT post_id FROM POST_LIKES WHERE post_id=POSTS.id AND user_id="${req.body.user_id}") IS NULL THEN 0 ELSE 1 END) AS is_liked, (SELECT COUNT(id) FROM COMMENTS WHERE parent_id=POSTS.id AND is_from_post="1") AS num_comments FROM POSTS INNER JOIN Users ON POSTS.user_id = Users.id LEFT JOIN POSTS_DESCRIPTION ON POSTS.id = POSTS_DESCRIPTION.post_id WHERE POSTS.date <= (SELECT date FROM POSTS WHERE id="${req.body.last_post_id}") AND POSTS.id != "${req.body.last_post_id}" AND POSTS.user_id IN (SELECT following FROM FOLLOW_RELATIONS WHERE follower="${req.body.user_id}") ORDER BY date DESC LIMIT 10;`
+        const query = `SELECT POSTS.id AS id, (SELECT COUNT(post_id) FROM POST_LIKES WHERE post_id=POSTS.id) AS num_likes, POSTS.user_id AS user_id, POSTS.is_public AS is_public, POSTS.photo_url AS photo_url, POSTS.date AS date, Users.username AS username, Users.photo_url AS user_photo_url, POSTS_DESCRIPTION.description AS description, (CASE WHEN (SELECT post_id FROM POST_LIKES WHERE post_id=POSTS.id AND user_id="${req.body.user_id}") IS NULL THEN 0 ELSE 1 END) AS is_liked, (SELECT COUNT(id) FROM COMMENTS WHERE parent_id=POSTS.id) AS num_comments FROM POSTS INNER JOIN Users ON POSTS.user_id = Users.id LEFT JOIN POSTS_DESCRIPTION ON POSTS.id = POSTS_DESCRIPTION.post_id WHERE POSTS.date <= (SELECT date FROM POSTS WHERE id="${req.body.last_post_id}") AND POSTS.id != "${req.body.last_post_id}" AND POSTS.user_id IN (SELECT following FROM FOLLOW_RELATIONS WHERE follower="${req.body.user_id}") ORDER BY date DESC LIMIT 10;`
         const response = await connection.query(query)
         res.status(200).json({ message: "success", posts: response[0] })
         //TODO acabar
@@ -343,7 +380,7 @@ router.post("/getPostsByTag", async (req, res) => {
         const ids = (await connection.query(ids_to_fetch_query))[0]
 
         if (ids.length > 0) {
-            const query = `SELECT POSTS.id AS id, (SELECT COUNT(post_id) FROM POST_LIKES WHERE post_id=POSTS.id) AS num_likes, POSTS.user_id AS user_id, POSTS.is_public AS is_public, POSTS.photo_url AS photo_url, POSTS.date AS date, Users.username AS username, Users.photo_url AS user_photo_url, POSTS_DESCRIPTION.description AS description, (CASE WHEN (SELECT post_id FROM POST_LIKES WHERE post_id=POSTS.id AND user_id="${req.body.user_id}") IS NULL THEN 0 ELSE 1 END) AS is_liked, (SELECT COUNT(id) FROM COMMENTS WHERE parent_id=POSTS.id AND is_from_post="1") AS num_comments FROM POSTS 
+            const query = `SELECT POSTS.id AS id, (SELECT COUNT(post_id) FROM POST_LIKES WHERE post_id=POSTS.id) AS num_likes, POSTS.user_id AS user_id, POSTS.is_public AS is_public, POSTS.photo_url AS photo_url, POSTS.date AS date, Users.username AS username, Users.photo_url AS user_photo_url, POSTS_DESCRIPTION.description AS description, (CASE WHEN (SELECT post_id FROM POST_LIKES WHERE post_id=POSTS.id AND user_id="${req.body.user_id}") IS NULL THEN 0 ELSE 1 END) AS is_liked, (SELECT COUNT(id) FROM COMMENTS WHERE parent_id=POSTS.id) AS num_comments FROM POSTS 
         INNER JOIN Users ON POSTS.user_id = Users.id 
         LEFT JOIN POSTS_DESCRIPTION ON POSTS.id = POSTS_DESCRIPTION.post_id 
         WHERE POSTS.id IN (${ids.map((obj) => { return `'${obj.id}'` })})
