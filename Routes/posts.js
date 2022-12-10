@@ -139,12 +139,12 @@ router.post("/addComment", async (req, res) => {
                 res.status(403).json({ message: "ERROR: comment accessed doesn't exist" })
                 return
             }
-        
-        //TODO
-        //const query = `INSERT INTO COMMENTS VALUES('${id}', '${req.body.comment}', ${req.body.isFromPost ? 1 : 0}, '${req.body.parentId}', '${req.body.user_id}', UTC_TIMESTAMP);`
-        //await connection.query(query)
-        res.status(200).json({ message: "success" })
-    }
+
+            //TODO
+            //const query = `INSERT INTO COMMENTS VALUES('${id}', '${req.body.comment}', ${req.body.isFromPost ? 1 : 0}, '${req.body.parentId}', '${req.body.user_id}', UTC_TIMESTAMP);`
+            //await connection.query(query)
+            res.status(200).json({ message: "success" })
+        }
     }
     catch (error) {
         console.log(error)
@@ -192,13 +192,13 @@ router.post("/getComments", async (req, res) => {
 
 })
 
-router.post("/getCommentReplies", async(req, res)=>{
-    if (req.body.comment_id.length > 22 || req.body.last_comment_id === undefined) {
+router.post("/getCommentReplies", async (req, res) => {
+    if (req.body.comment_id.length > 22 || req.body.last_reply_id === undefined) {
         res.status(403).json({ message: "ERROR: wrong params" })
         return
     }
     try {
-        
+
         const connection = await mysql.createConnection(process.env.DATABASE_URL)
         const checkCommentQuery = `SELECT id FROM COMMENTS WHERE id='${req.body.comment_id}'`
         const response = await connection.query(checkCommentQuery)
@@ -206,9 +206,28 @@ router.post("/getCommentReplies", async(req, res)=>{
             res.status(403).json({ message: "ERROR: comment accessed doesn't exist" })
             return
         }
-        const getRepliesQuery = `SELECT * FROM COMMENT_REPLY WHERE comment_id='${req.body.comment_id}' ORDER BY DATE DESC LIMIT 6`
-        const replies = await connection.query(getRepliesQuery)
-        res.status(200).json({ message: "success", comments: replies[0] })
+        if (req.body.last_reply_id === null) 
+        {
+            const getRepliesQuery = `SELECT COMMENT_REPLY.id AS id, COMMENT_REPLY.text AS text, COMMENT_REPLY.comment_id AS comment_id, COMMENT_REPLY.user_id AS user_id, (SELECT username FROM Users WHERE id=COMMENT_REPLY.user_id) AS user_username, (SELECT photo_url FROM Users WHERE id=COMMENT_REPLY.user_id) AS user_photo_url, COMMENT_REPLY.date AS date 
+            FROM COMMENT_REPLY 
+            WHERE comment_id='${req.body.comment_id}' 
+            ORDER BY DATE DESC 
+            LIMIT 6`
+            const replies = await connection.query(getRepliesQuery)
+            res.status(200).json({ message: "success", comments: replies[0] })
+        }
+        else {
+            const getRepliesQuery = `SELECT COMMENT_REPLY.id AS id, COMMENT_REPLY.text AS text, COMMENT_REPLY.comment_id AS comment_id, COMMENT_REPLY.user_id AS user_id, (SELECT username FROM Users WHERE id=COMMENT_REPLY.user_id) AS user_username, (SELECT photo_url FROM Users WHERE id=COMMENT_REPLY.user_id) AS user_photo_url, COMMENT_REPLY.date AS date 
+            FROM COMMENT_REPLY 
+            WHERE DATE<=(SELECT DATE FROM COMMENT_REPLY WHERE id='${req.body.last_reply_id}') 
+            AND comment_id='${req.body.comment_id}' 
+            AND id != '${req.body.last_reply_id}'  
+            ORDER BY DATE DESC 
+            LIMIT 6`
+            const replies = await connection.query(getRepliesQuery)
+            res.status(200).json({ message: "success", comments: replies[0] })
+        }
+
     } catch (error) {
         console.log(error)
         res.status(503).json({ message: "ERROR: Server error" })
