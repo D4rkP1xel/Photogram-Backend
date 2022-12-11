@@ -140,10 +140,10 @@ router.post("/addComment", async (req, res) => {
                 return
             }
 
-            //TODO
-            //const query = `INSERT INTO COMMENTS VALUES('${id}', '${req.body.comment}', ${req.body.isFromPost ? 1 : 0}, '${req.body.parentId}', '${req.body.user_id}', UTC_TIMESTAMP);`
-            //await connection.query(query)
+            const query = `INSERT INTO COMMENT_REPLY VALUES('${id}', '${req.body.comment}', '${req.body.parentId}', '${req.body.user_id}', UTC_TIMESTAMP);`
+            await connection.query(query)
             res.status(200).json({ message: "success" })
+            return
         }
     }
     catch (error) {
@@ -151,6 +151,7 @@ router.post("/addComment", async (req, res) => {
         res.status(503).json({ message: "ERROR: Server error" })
     }
 })
+
 
 router.post("/getComments", async (req, res) => {
     if (req.body.post_id === undefined || req.body.post_id.length > 22 || req.body.last_comment_id === undefined) {
